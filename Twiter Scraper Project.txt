@@ -5,46 +5,63 @@ import streamlit as st
 import snscrape.modules.twitter as sntwitter
 import pandas as pd
 import snscrape.modules.twitter as sntwitter
-maxTweets = 10
-keyword='tb2'
-for i, tweet in enumerate(sntwitter.TwitterSearchScraper(keyword + ' since:2021-11-01 until:2023-01-01 lang:"en" ').get_items()):
-    tweets = {
-            "Tweet" : "Reply",
-            "tweet/reply id": "a"+str(tweet.id),
-            "inReplyToTweetId": "a"+str(tweet.inReplyToTweetId),
-            "conversationId": "a"+str(tweet.conversationId),
-            "tweet.username" : tweet.username,
-            "tweet.content" : tweet.content,
-            "tweet.date" : tweet.date,
-            "tweet.user.location" : tweet.user.location,
-            "tweet.likeCount" : tweet.likeCount, 
-            "tweet.replyCount" : tweet.replyCount,
-            "tweet.retweetCount" : tweet.retweetCount,
-            "tweet.user.followersCount" : tweet.user.followersCount,
-            "tweet.user.description": tweet.user.description,
-            "tweet.user.friendsCount": tweet.user.friendsCount,
-            "tweet.user.statusesCount": tweet.user.statusesCount,
-            "tweet.user.favouritesCount": tweet.user.favouritesCount,
-            "tweet.user.listedCount": tweet.user.listedCount,
-            "tweet.user.mediaCount": tweet.user.mediaCount,
-            "tweet.url" : tweet.url
-            }   
-    print(tweets) 
-tweets_df.head(100)
 # Created a list to append all tweet attributes(data)
 attributes_container = []
-
+keyword='tb2'
 # Using TwitterSearchScraper to scrape data and append tweets to list
-for i,tweet in enumerate(sntwitter.TwitterSearchScraper('from:john').get_items()):
-    if i>100:
+for i,tweet in enumerate(sntwitter.TwitterSearchScraper(keyword + ' since:2023-02-15 until:2023-02-24 lang:"en" ').get_items()):
+    if i>1000:
         break
-    attributes_container.append([tweet.date, tweet.likeCount, tweet.sourceLabel, tweet.content])
+    attributes_container.append([tweet.date, tweet.sourceLabel, tweet.content, tweet.id, tweet.url, tweet.user, tweet.replyCount, tweet.retweetCount, tweet.likeCount])
     
 # Creating a dataframe from the tweets list above 
-tweets_df = pd.DataFrame(attributes_container, columns=["Date Created", "Number of Likes", "Source of Tweet", "Tweets"])
-for i,tweet in enumerate(sntwitter.TwitterSearchScraper('from:john').get_items()):
-    if i>100:
+tweets_df = pd.DataFrame(attributes_container, columns=["Date", "Id", "URL","Tweet Content", "User",  "ReplyCount",  "ReTweet Count", "Source", "LikeCount"])
+for i,tweet in enumerate(sntwitter.TwitterSearchScraper(keyword + ' since:2021-11-01 until:2023-02-15 lang:"en" ').get_items()):
+    if i>1000:
         break
-    attributes_container.append([tweet.date, tweet.likeCount, tweet.sourceLabel, tweet.content])
-    
-    tweets_df.head(100)
+    attributes_container.append([tweet.date, tweet.id, tweet.sourceLabel, tweet.content,  tweet.url, tweet.user, tweet.replyCount, tweet.retweetCount, tweet.likeCount])
+# importing pymongo
+import pymongo
+from pymongo import MongoClient
+import json
+# connection establishment
+try:
+    connect = MongoClient()
+    print("Connected!!")
+except:
+    print("Could not connect to MongoDB")
+
+# connecting or switching to the database
+db = connect.demoDB
+
+# creating or switching to demoCollection
+collection = db.demoCollection
+
+# first document
+document1 = {
+        "Scraped Word": "ElonMusk",
+         "Scraped Date": 15-2-2023,
+        "Scraped Data": 1000
+            }
+
+# Inserting document
+collection.insert_one(document1)
+# Printing the data inserted
+cursor = collection.find()
+for record in cursor:
+    print(record)
+tweets_df.head(100)
+
+# export the MongoDB documents as a JSON file
+tweets_df.to_json("object_rocket.json")
+
+# have Pandas return a JSON string of the documents
+json_export = tweets_df.to_json() # return JSON data
+print ("\nJSON data:", json_export)
+
+# export MongoDB documents to a CSV file
+tweets_df.to_csv("object_rocket.csv", ",") # CSV delimited by commas
+
+# export MongoDB documents to CSV
+csv_export = tweets_df.to_csv(sep=",") # CSV delimited by commas
+print ("\nCSV data:", csv_export)
