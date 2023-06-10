@@ -1,806 +1,720 @@
-**********Data Extraction******
-import pandas as pd 
-import plotly.express as px
-import streamlit as st 
-import warnings
+# [clone libraries]
+import requests
+import subprocess
+# import git
+
+# [pandas and file handling libraries]
+import pandas as pd
+import numpy as np
+import os
+import json
+
+# [SQL libraries]
+import mysql.connector
+import sqlalchemy
+from sqlalchemy import create_engine
 import pymysql
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-warnings.filterwarnings("ignore")
-st. set_page_config(layout="wide")
 
-# Getting Secrets from Streamlit Secret File
-# username=st.secrets['AWS_RDS_username']
-# password=st.secrets['AWS_RDS_password']
-# Endpoint=st.secrets['Endpoint']
+# [Dash board libraries]
+import streamlit as st
+import plotly.express as px
 
-# # CONNECTED TO (AWS)Amazon-Web-Services ----> (RDS)Relational-Database-Service 
-# conn=pymysql.connect(
-#     host=Endpoint,
-#     user=username,
-#     password=password
-# )
+# =====================================================    /   CLONING   /     ============================================================== #
 
-# # USING PhonepeDB I HAVE CREATED IN DATABASE-INSTANCE OF RDS
-# mycursor=conn.cursor()
-# sql='''USE PhonepeDB'''
-# mycursor.execute(sql)
+#Specify the GitHub repository URL
+response = requests.get('https://api.github.com/repos/PhonePe/pulse')
+repo = response.json()
+clone_url = repo['clone_url']
 
-# # RETRIEVING DATA FROM CLOUD DATABASE
-# query = 'select * from Longitude_Latitude_State_Table'
-# Indian_States = pd.read_sql(query, con = conn)
+#Specify the local directory path
+clone_dir = "C:/Phonepe Pulse data"
 
-# DATASETS
-Data_Aggregated_Transaction_df= pd.read_csv(r'data/Data_Aggregated_Transaction_Table.csv')
-Data_Aggregated_User_Summary_df= pd.read_csv(r'data/Data_Aggregated_User_Summary_Table.csv')
-Data_Aggregated_User_df= pd.read_csv(r'data/Data_Aggregated_User_Table.csv')
-Scatter_Geo_Dataset =  pd.read_csv(r'data/Data_Map_Districts_Longitude_Latitude.csv')
-Coropleth_Dataset =  pd.read_csv(r'data/Data_Map_IndiaStates_TU.csv')
-Data_Map_Transaction_df = pd.read_csv(r'data/Data_Map_Transaction_Table.csv')
-Data_Map_User_Table= pd.read_csv(r'data/Data_Map_User_Table.csv')
-Indian_States= pd.read_csv(r'data/Longitude_Latitude_State_Table.csv')
-colT1,colT2 = st.columns([2,8])
-with colT2:
-    st.title(':red[PhonePe Pulse Data Analysis:signal_strength:]')
+# Clone the repository to the specified local directory
+subprocess.run(["git", "clone", clone_url, clone_dir], check=True)
+path_1 = "C:/Phonepe Pulse data/data/aggregated/transaction/country/india/state/"
+Agg_tran_state_list = os.listdir(path_1)
 
-#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ INDIA MAP ANALYSIS @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+Agg_tra = {'State': [], 'Year': [], 'Quarter': [], 'Transaction_type': [], 'Transaction_count': [],
+           'Transaction_amount': []}
 
-c1,c2=st.columns(2)
-with c1:
-    Year = st.selectbox(
-            'Please select the Year',
-            ('2018', '2019', '2020','2021','2022'))
-with c2:
-    Quarter = st.selectbox(
-            'Please select the Quarter',
-            ('1', '2', '3','4'))
-year=int(Year)
-quarter=int(Quarter)
-Transaction_scatter_districts=Data_Map_Transaction_df.loc[(Data_Map_Transaction_df['Year'] == year ) & (Data_Map_Transaction_df['Quarter']==quarter) ].copy()
-Transaction_Coropleth_States=Transaction_scatter_districts[Transaction_scatter_districts["State"] == "india"]
-Transaction_scatter_districts.drop(Transaction_scatter_districts.index[(Transaction_scatter_districts["State"] == "india")],axis=0,inplace=True)
-# Dynamic Scattergeo Data Generation
-Transaction_scatter_districts = Transaction_scatter_districts.sort_values(by=['Place_Name'], ascending=False)
-Scatter_Geo_Dataset = Scatter_Geo_Dataset.sort_values(by=['District'], ascending=False) 
-Total_Amount=[]
-for i in Transaction_scatter_districts['Total_Amount']:
-    Total_Amount.append(i)
-Scatter_Geo_Dataset['Total_Amount']=Total_Amount
-Total_Transaction=[]
-for i in Transaction_scatter_districts['Total_Transactions_count']:
-    Total_Transaction.append(i)
-Scatter_Geo_Dataset['Total_Transactions']=Total_Transaction
-Scatter_Geo_Dataset['Year_Quarter']=str(year)+'-Q'+str(quarter)
-# Dynamic Coropleth
-Coropleth_Dataset = Coropleth_Dataset.sort_values(by=['state'], ascending=False)
-Transaction_Coropleth_States = Transaction_Coropleth_States.sort_values(by=['Place_Name'], ascending=False)
-Total_Amount=[]
-for i in Transaction_Coropleth_States['Total_Amount']:
-    Total_Amount.append(i)
-Coropleth_Dataset['Total_Amount']=Total_Amount
-Total_Transaction=[]
-for i in Transaction_Coropleth_States['Total_Transactions_count']:
-    Total_Transaction.append(i)
-Coropleth_Dataset['Total_Transactions']=Total_Transaction
-# -------------------------------------FIGURE1 INDIA MAP------------------------------------------------------------------
-#scatter plotting the states codes 
-Indian_States = Indian_States.sort_values(by=['state'], ascending=False)
-Indian_States['Registered_Users']=Coropleth_Dataset['Registered_Users']
-Indian_States['Total_Amount']=Coropleth_Dataset['Total_Amount']
-Indian_States['Total_Transactions']=Coropleth_Dataset['Total_Transactions']
-Indian_States['Year_Quarter']=str(year)+'-Q'+str(quarter)
-fig=px.scatter_geo(Indian_States,
-                    lon=Indian_States['Longitude'],
-                    lat=Indian_States['Latitude'],                                
-                    text = Indian_States['code'], #It will display district names on map
-                    hover_name="state", 
-                    hover_data=['Total_Amount',"Total_Transactions","Year_Quarter"],
-                    )
-fig.update_traces(marker=dict(color="white" ,size=0.3))
-fig.update_geos(fitbounds="locations", visible=False,)
-    # scatter plotting districts
-Scatter_Geo_Dataset['col']=Scatter_Geo_Dataset['Total_Transactions']
-fig1=px.scatter_geo(Scatter_Geo_Dataset,
-                    lon=Scatter_Geo_Dataset['Longitude'],
-                    lat=Scatter_Geo_Dataset['Latitude'],
-                    color=Scatter_Geo_Dataset['col'],
-                    size=Scatter_Geo_Dataset['Total_Transactions'],     
-                    #text = Scatter_Geo_Dataset['District'], #It will display district names on map
-                    hover_name="District", 
-                    hover_data=["State", "Total_Amount","Total_Transactions","Year_Quarter"],
-                    title='District',
-                    size_max=22,)
-fig1.update_traces(marker=dict(color="rebeccapurple" ,line_width=1))    #rebeccapurple
-#coropleth mapping india
-fig_ch = px.choropleth(
-                    Coropleth_Dataset,
-                    geojson="https://gist.githubusercontent.com/jbrobst/56c13bbbf9d97d187fea01ca62ea5112/raw/e388c4cae20aa53cb5090210a42ebb9b765c0a36/india_states.geojson",
-                    featureidkey='properties.ST_NM',                
-                    locations='state',
-                    color="Total_Transactions",                                       
-                    )
-fig_ch.update_geos(fitbounds="locations", visible=False,)
-#combining districts states and coropleth
-fig_ch.add_trace( fig.data[0])
-fig_ch.add_trace(fig1.data[0])
-st.write("### **:blue[PhonePe India Map]**")
-colT1,colT2 = st.columns([6,4])
-with colT1:
-    st.plotly_chart(fig_ch, use_container_width=True)
-with colT2:
-    st.info(
-    """
-    Details of Map:
-    - The darkness of the state color represents the total transactions
-    - The Size of the Circles represents the total transactions dictrict wise
-    - The bigger the Circle the higher the transactions
-    - Hover data will show the details like Total transactions, Total amount
-    """
-    )
-    st.info(
-    """
-    Important Observations:
-    - User can observe Transactions of PhonePe in both statewide and Districtwide.
-    - We can clearly see the states with highest transactions in the given year and quarter
-    - We get basic idea about transactions district wide
-    """
-    )
-# -----------------------------------------------FIGURE2 HIDDEN BARGRAPH------------------------------------------------------------------------
-Coropleth_Dataset = Coropleth_Dataset.sort_values(by=['Total_Transactions'])
-fig = px.bar(Coropleth_Dataset, x='state', y='Total_Transactions',title=str(year)+" Quarter-"+str(quarter))
-with st.expander("See Bar graph for the same data"):
-    st.plotly_chart(fig, use_container_width=True)
-    st.info('**:blue[The above bar graph showing the increasing order of PhonePe Transactions according to the states of India, Here we can observe the top states with highest Transaction by looking at graph]**')
+for i in Agg_tran_state_list:
+    p_i = path_1 + i + "/"
+    Agg_yr = os.listdir(p_i)
 
-#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ TRANSACTIONS ANALYSIS @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    for j in Agg_yr:
+        p_j = p_i + j + "/"
+        Agg_yr_list = os.listdir(p_j)
 
-st.write('# :green[TRANSACTIONS ANALYSIS :currency_exchange:]')
-tab1, tab2, tab3, tab4 = st.tabs(["STATE ANALYSIS", "DISTRICT ANALYSIS", "YEAR ANALYSIS", "OVERALL ANALYSIS"])
-#==================================================T FIGURE1 STATE ANALYSIS=======================================================
-with tab1:
-    Data_Aggregated_Transaction=Data_Aggregated_Transaction_df.copy()
-    Data_Aggregated_Transaction.drop(Data_Aggregated_Transaction.index[(Data_Aggregated_Transaction["State"] == "india")],axis=0,inplace=True)
-    State_PaymentMode=Data_Aggregated_Transaction.copy()
-    # st.write('### :green[State & PaymentMode]')
-    col1, col2= st.columns(2)
-    with col1:
-        mode = st.selectbox(
-            'Please select the Mode',
-            ('Recharge & bill payments', 'Peer-to-peer payments', 'Merchant payments', 'Financial Services','Others'),key='a')
-    with col2:
-        state = st.selectbox(
-        'Please select the State',
-        ('andaman-&-nicobar-islands', 'andhra-pradesh', 'arunachal-pradesh',
-        'assam', 'bihar', 'chandigarh', 'chhattisgarh',
-        'dadra-&-nagar-haveli-&-daman-&-diu', 'delhi', 'goa', 'gujarat',
-        'haryana', 'himachal-pradesh', 'jammu-&-kashmir',
-        'jharkhand', 'karnataka', 'kerala', 'ladakh', 'lakshadweep',
-        'madhya-pradesh', 'maharashtra', 'manipur', 'meghalaya', 'mizoram',
-        'nagaland', 'odisha', 'puducherry', 'punjab', 'rajasthan',
-        'sikkim', 'tamil-nadu', 'telangana', 'tripura', 'uttar-pradesh',
-        'uttarakhand', 'west-bengal'),key='b')
-    State= state
-    Year_List=[2018,2019,2020,2021,2022]
-    Mode=mode
-    State_PaymentMode=State_PaymentMode.loc[(State_PaymentMode['State'] == State ) & (State_PaymentMode['Year'].isin(Year_List)) & 
-                            (State_PaymentMode['Payment_Mode']==Mode )]
-    State_PaymentMode = State_PaymentMode.sort_values(by=['Year'])
-    State_PaymentMode["Quarter"] = "Q"+State_PaymentMode['Quarter'].astype(str)
-    State_PaymentMode["Year_Quarter"] = State_PaymentMode['Year'].astype(str) +"-"+ State_PaymentMode["Quarter"].astype(str)
-    fig = px.bar(State_PaymentMode, x='Year_Quarter', y='Total_Transactions_count',color="Total_Transactions_count",
-                 color_continuous_scale="Viridis")
-    
-    colT1,colT2 = st.columns([7,3])
-    with colT1:
-        st.write('#### '+State.upper()) 
-        st.plotly_chart(fig,use_container_width=True)
-    with colT2:
-        st.info(
-        """
-        Details of BarGraph:
-        - This entire data belongs to state selected by you
-        - X Axis is basically all years with all quarters 
-        - Y Axis represents total transactions in selected mode        
-        """
-        )
-        st.info(
-        """
-        Important Observations:
-        - User can observe the pattern of payment modes in a State 
-        - We get basic idea about which mode of payments are either increasing or decreasing in a state
-        """
-        )
-#=============================================T FIGURE2 DISTRICTS ANALYSIS=============================================
-with tab2:
-    col1, col2, col3= st.columns(3)
-    with col1:
-        Year = st.selectbox(
-            'Please select the Year',
-            ('2018', '2019', '2020','2021','2022'),key='y1')
-    with col2:
-        state = st.selectbox(
-        'Please select the State',
-        ('andaman-&-nicobar-islands', 'andhra-pradesh', 'arunachal-pradesh',
-        'assam', 'bihar', 'chandigarh', 'chhattisgarh',
-        'dadra-&-nagar-haveli-&-daman-&-diu', 'delhi', 'goa', 'gujarat',
-        'haryana', 'himachal-pradesh', 'jammu-&-kashmir',
-        'jharkhand', 'karnataka', 'kerala', 'ladakh', 'lakshadweep',
-        'madhya-pradesh', 'maharashtra', 'manipur', 'meghalaya', 'mizoram',
-        'nagaland', 'odisha', 'puducherry', 'punjab', 'rajasthan',
-        'sikkim', 'tamil-nadu', 'telangana', 'tripura', 'uttar-pradesh',
-        'uttarakhand', 'west-bengal'),key='dk')
-    with col3:
-        Quarter = st.selectbox(
-            'Please select the Quarter',
-            ('1', '2', '3','4'),key='qwe')
-    districts=Data_Map_Transaction_df.loc[(Data_Map_Transaction_df['State'] == state ) & (Data_Map_Transaction_df['Year']==int(Year))
-                                          & (Data_Map_Transaction_df['Quarter']==int(Quarter))]
-    l=len(districts)    
-    fig = px.bar(districts, x='Place_Name', y='Total_Transactions_count',color="Total_Transactions_count",
-                 color_continuous_scale="Viridis")   
-    colT1,colT2 = st.columns([7,3])
-    with colT1:
-        st.write('#### '+state.upper()+' WITH '+str(l)+' DISTRICTS')
-        st.plotly_chart(fig,use_container_width=True)
-    with colT2:
-        st.info(
-        """
-        Details of BarGraph:
-        - This entire data belongs to state selected by you
-        - X Axis represents the districts of selected state
-        - Y Axis represents total transactions        
-        """
-        )
-        st.info(
-        """
-        Important Observations:
-        - User can observe how transactions are happening in districts of a selected state 
-        - We can observe the leading distric in a state 
-        """
-        )
-#=============================================T FIGURE3 YEAR ANALYSIS===================================================
-with tab3:
-    #st.write('### :green[PaymentMode and Year]')
-    col1, col2= st.columns(2)
-    with col1:
-        M = st.selectbox(
-            'Please select the Mode',
-            ('Recharge & bill payments', 'Peer-to-peer payments', 'Merchant payments', 'Financial Services','Others'),key='D')
-    with col2:
-        Y = st.selectbox(
-        'Please select the Year',
-        ('2018', '2019', '2020','2021','2022'),key='F')
-    Year_PaymentMode=Data_Aggregated_Transaction.copy()
-    Year=int(Y)
-    Mode=M
-    Year_PaymentMode=Year_PaymentMode.loc[(Year_PaymentMode['Year']==Year) & 
-                            (Year_PaymentMode['Payment_Mode']==Mode )]
-    States_List=Year_PaymentMode['State'].unique()
-    State_groupby_YP=Year_PaymentMode.groupby('State')
-    Year_PaymentMode_Table=State_groupby_YP.sum()
-    Year_PaymentMode_Table['states']=States_List
-    del Year_PaymentMode_Table['Quarter'] # ylgnbu', 'ylorbr', 'ylorrd teal
-    del Year_PaymentMode_Table['Year']
-    Year_PaymentMode_Table = Year_PaymentMode_Table.sort_values(by=['Total_Transactions_count'])
-    fig2= px.bar(Year_PaymentMode_Table, x='states', y='Total_Transactions_count',color="Total_Transactions_count",
-                color_continuous_scale="Viridis",)   
-    colT1,colT2 = st.columns([7,3])
-    with colT1:
-        st.write('#### '+str(Year)+' DATA ANALYSIS')
-        st.plotly_chart(fig2,use_container_width=True) 
-    with colT2:
-        st.info(
-        """
-        Details of BarGraph:
-        - This entire data belongs to selected Year
-        - X Axis is all the states in increasing order of Total transactions
-        - Y Axis represents total transactions in selected mode        
-        """
-        )
-        st.info(
-        """
-        Important Observations:
-        - We can observe the leading state with highest transactions in particular mode
-        - We get basic idea about regional performance of Phonepe
-        - Depending on the regional performance Phonepe can provide offers to particular place
-        """
-        )
-#=============================================T FIGURE4 OVERALL ANALYSIS=============================================
-with tab4:    
-    years=Data_Aggregated_Transaction.groupby('Year')
-    years_List=Data_Aggregated_Transaction['Year'].unique()
-    years_Table=years.sum()
-    del years_Table['Quarter']
-    years_Table['year']=years_List
-    total_trans=years_Table['Total_Transactions_count'].sum() # this data is used in sidebar    
-    fig1 = px.pie(years_Table, values='Total_Transactions_count', names='year',color_discrete_sequence=px.colors.sequential.Viridis, title='TOTAL TRANSACTIONS (2018 TO 2022)')
-    col1, col2= st.columns([0.65,0.35])
-    with col1:
-        st.write('### :green[Drastical Increase in Transactions :rocket:]')
-        st.plotly_chart(fig1)
-    with col2:  
-        st.write('#### :green[Year Wise Transaction Analysis in INDIA]')      
-        st.markdown(years_Table.style.hide(axis="index").to_html(), unsafe_allow_html=True)
-        st.info(
-        """
-        Important Observations:
-        - Its very clearly understood that online transactions drasticall increased
-        - Initially in 2018,2019 the transactions are less but with time the online payments are increased at a high scale via PhonePe.
-        - We can clearly see that more than 50% of total Phonepe transactions in india happened are from the year 2022
-        """
-        )
+        for k in Agg_yr_list:
+            p_k = p_j + k
+            Data = open(p_k, 'r')
+            A = json.load(Data)
 
-# @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ USER ANALYSIS @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+            for l in A['data']['transactionData']:
+                Name = l['name']
+                count = l['paymentInstruments'][0]['count']
+                amount = l['paymentInstruments'][0]['amount']
+                Agg_tra['State'].append(i)
+                Agg_tra['Year'].append(j)
+                Agg_tra['Quarter'].append(int(k.strip('.json')))
+                Agg_tra['Transaction_type'].append(Name)
+                Agg_tra['Transaction_count'].append(count)
+                Agg_tra['Transaction_amount'].append(amount)
 
-st.write('# :orange[USERS DATA ANALYSIS ]')
-tab1, tab2, tab3, tab4 = st.tabs(["STATE ANALYSIS", "DISTRICT ANALYSIS","YEAR ANALYSIS","OVERALL ANALYSIS"])
+df_aggregated_transaction = pd.DataFrame(Agg_tra)
+# ==============================     DATA     /     AGGREGATED     /     USER     ===================================#
+# 2
 
-# =================================================U STATE ANALYSIS ========================================================
-with tab1:
-    st.write('### :blue[State & Userbase]')
-    state = st.selectbox(
-        'Please select the State',
-        ('andaman-&-nicobar-islands', 'andhra-pradesh', 'arunachal-pradesh',
-        'assam', 'bihar', 'chandigarh', 'chhattisgarh',
-        'dadra-&-nagar-haveli-&-daman-&-diu', 'delhi', 'goa', 'gujarat',
-        'haryana', 'himachal-pradesh', 'jammu-&-kashmir',
-        'jharkhand', 'karnataka', 'kerala', 'ladakh', 'lakshadweep',
-        'madhya-pradesh', 'maharashtra', 'manipur', 'meghalaya', 'mizoram',
-        'nagaland', 'odisha', 'puducherry', 'punjab', 'rajasthan',
-        'sikkim', 'tamil-nadu', 'telangana', 'tripura', 'uttar-pradesh',
-        'uttarakhand', 'west-bengal'),key='W')
-    app_opening=Data_Aggregated_User_Summary_df.groupby(['State','Year'])
-    a_state=app_opening.sum()
-    la=Data_Aggregated_User_Summary_df['State'] +"-"+ Data_Aggregated_User_Summary_df["Year"].astype(str)
-    a_state["state_year"] = la.unique()
-    sta=a_state["state_year"].str[:-5]
-    a_state["state"] = sta
-    sout=a_state.loc[(a_state['state'] == state) ]
-    ta=sout['AppOpenings'].sum()
-    tr=sout['Registered_Users'].sum()
-    sout['AppOpenings']=sout['AppOpenings'].mul(100/ta)
-    sout['Registered_Users']=sout['Registered_Users'].mul(100/tr).copy()
-    fig = go.Figure(data=[
-        go.Bar(name='AppOpenings %', y=sout['AppOpenings'], x=sout['state_year'], marker={'color': 'pink'}),
-        go.Bar(name='Registered Users %', y=sout['Registered_Users'], x=sout['state_year'],marker={'color': 'orange'})
-    ])
-    # Change the bar mode
-    fig.update_layout(barmode='group')
-    colT1,colT2 = st.columns([7,3])
-    with colT1:
-        st.write("#### ",state.upper())
-        st.plotly_chart(fig, use_container_width=True, height=200)
-    with colT2:
-        st.info(
-        """
-        Details of BarGraph:
-        - user need to select a state 
-        - The X Axis shows both Registered users and App openings 
-        - The Y Axis shows the Percentage of Registered users and App openings
-        """
-        )
-        st.info(
-        """
-        Important Observations:
-        - User can observe how the App Openings are growing and how Registered users are growing in a state
-        - We can clearly obseve these two parameters with time
-        - one can observe how user base is growing
-        """
-        )
-# ==================================================U DISTRICT ANALYSIS ====================================================
-with tab2:
-    col1, col2, col3= st.columns(3)
-    with col1:
-        Year = st.selectbox(
-            'Please select the Year',
-            ('2022', '2021','2020','2019','2018'),key='y12')
-    with col2:
-        state = st.selectbox(
-        'Please select the State',
-        ('andaman-&-nicobar-islands', 'andhra-pradesh', 'arunachal-pradesh',
-        'assam', 'bihar', 'chandigarh', 'chhattisgarh',
-        'dadra-&-nagar-haveli-&-daman-&-diu', 'delhi', 'goa', 'gujarat',
-        'haryana', 'himachal-pradesh', 'jammu-&-kashmir',
-        'jharkhand', 'karnataka', 'kerala', 'ladakh', 'lakshadweep',
-        'madhya-pradesh', 'maharashtra', 'manipur', 'meghalaya', 'mizoram',
-        'nagaland', 'odisha', 'puducherry', 'punjab', 'rajasthan',
-        'sikkim', 'tamil-nadu', 'telangana', 'tripura', 'uttar-pradesh',
-        'uttarakhand', 'west-bengal'),key='dk2')
-    with col3:
-        Quarter = st.selectbox(
-            'Please select the Quarter',
-            ('1', '2', '3','4'),key='qwe2')
-    districts=Data_Map_User_Table.loc[(Data_Map_User_Table['State'] == state ) & (Data_Map_User_Table['Year']==int(Year))
-                                          & (Data_Map_User_Table['Quarter']==int(Quarter))]
-    l=len(districts)    
-    fig = px.bar(districts, x='Place_Name', y='App_Openings',color="App_Openings",
-                 color_continuous_scale="reds")   
-    colT1,colT2 = st.columns([7,3])
-    with colT1:
-        if l:
-            st.write('#### '+state.upper()+' WITH '+str(l)+' DISTRICTS')
-            st.plotly_chart(fig,use_container_width=True)
-        else:
-            st.write('#### NO DISTRICTS DATA AVAILABLE FOR '+state.upper())
+path_2 = "C:/Phonepe Pulse data/data/aggregated/user/country/india/state/"
+Agg_user_state_list = os.listdir(path_2)
 
-    with colT2:
-        if l:
-            st.info(
-        """
-        Details of BarGraph:
-        - This entire data belongs to state selected by you
-        - X Axis represents the districts of selected state
-        - Y Axis represents App Openings       
-        """
-            )
-            st.info(
-        """
-        Important Observations:
-        - User can observe how App Openings are happening in districts of a selected state 
-        - We can observe the leading distric in a state 
-        """
-            )
-# ==================================================U YEAR ANALYSIS ========================================================
-with tab3:
-    st.write('### :orange[Brand Share] ')
-    col1, col2= st.columns(2)
-    with col1:
-        state = st.selectbox(
-        'Please select the State',
-        ('india','andaman-&-nicobar-islands', 'andhra-pradesh', 'arunachal-pradesh',
-        'assam', 'bihar', 'chandigarh', 'chhattisgarh',
-        'dadra-&-nagar-haveli-&-daman-&-diu', 'delhi', 'goa', 'gujarat',
-        'haryana', 'himachal-pradesh', 'jammu-&-kashmir',
-        'jharkhand', 'karnataka', 'kerala', 'ladakh', 'lakshadweep',
-        'madhya-pradesh', 'maharashtra', 'manipur', 'meghalaya', 'mizoram',
-        'nagaland', 'odisha', 'puducherry', 'punjab', 'rajasthan',
-        'sikkim', 'tamil-nadu', 'telangana', 'tripura', 'uttar-pradesh',
-        'uttarakhand', 'west-bengal'),key='Z')
-    with col2:
-        Y = st.selectbox(
-        'Please select the Year',
-        ('2018', '2019', '2020','2021','2022'),key='X')
-    y=int(Y)
-    s=state
-    brand=Data_Aggregated_User_df[Data_Aggregated_User_df['Year']==y] 
-    brand=Data_Aggregated_User_df.loc[(Data_Aggregated_User_df['Year'] == y) & (Data_Aggregated_User_df['State'] ==s)]
-    myb= brand['Brand_Name'].unique()
-    x = sorted(myb).copy()
-    b=brand.groupby('Brand_Name').sum()
-    b['brand']=x
-    br=b['Registered_Users_Count'].sum()
-    labels = b['brand']
-    values = b['Registered_Users_Count'] # customdata=labels,
-    fig3 = go.Figure(data=[go.Pie(labels=labels, values=values, hole=.4,textinfo='label+percent',texttemplate='%{label}<br>%{percent:1%f}',insidetextorientation='horizontal',textfont=dict(color='#000000'),marker_colors=px.colors.qualitative.Prism)])
-    
-    colT1,colT2 = st.columns([7,3])
-    with colT1:
-        st.write("#### ",state.upper()+' IN '+Y)
-        st.plotly_chart(fig3, use_container_width=True)        
-    with colT2:
-        st.info(
-        """
-        Details of Donut Chart:        
-        - Initially we select data by means of State and Year
-        - Percentage of registered users is represented with dounut chat through Device Brand
-        """
-        )
-        st.info(
-        """
-        Important Observations:
-        - User can observe the top leading brands in a particular state
-        - Brands with less users
-        - Brands with high users
-        - Can make app download advices to growing brands
-        """
-        )
+Agg_user = {'State': [], 'Year': [], 'Quarter': [], 'Brands': [], 'User_Count': [], 'User_Percentage': []}
 
-    b = b.sort_values(by=['Registered_Users_Count'])
-    fig4= px.bar(b, x='brand', y='Registered_Users_Count',color="Registered_Users_Count",
-                title='In '+state+'in '+str(y),
-                color_continuous_scale="oranges",)
-    with st.expander("See Bar graph for the same data"):
-        st.plotly_chart(fig4,use_container_width=True) 
-# ===================================================U OVERALL ANALYSIS ====================================================
+for i in Agg_user_state_list:
+    p_i = path_2 + i + "/"
+    Agg_yr = os.listdir(p_i)
 
-    with tab4:
-        years=Data_Aggregated_User_Summary_df.groupby('Year')
-        years_List=Data_Aggregated_User_Summary_df['Year'].unique()
-        years_Table=years.sum()
-        del years_Table['Quarter']
-        years_Table['year']=years_List
-        total_trans=years_Table['Registered_Users'].sum() # this data is used in sidebar    
-        fig1 = px.pie(years_Table, values='Registered_Users', names='year',color_discrete_sequence=px.colors.sequential.RdBu, title='TOTAL REGISTERED USERS (2018 TO 2022)')
-        col1, col2= st.columns([0.7,0.3])
+    for j in Agg_yr:
+        p_j = p_i + j + "/"
+        Agg_yr_list = os.listdir(p_j)
+
+        for k in Agg_yr_list:
+            p_k = p_j + k
+            Data = open(p_k, 'r')
+            B = json.load(Data)
+
+            try:
+                for l in B["data"]["usersByDevice"]:
+                    brand_name = l["brand"]
+                    count_ = l["count"]
+                    ALL_percentage = l["percentage"]
+                    Agg_user["State"].append(i)
+                    Agg_user["Year"].append(j)
+                    Agg_user["Quarter"].append(int(k.strip('.json')))
+                    Agg_user["Brands"].append(brand_name)
+                    Agg_user["User_Count"].append(count_)
+                    Agg_user["User_Percentage"].append(ALL_percentage * 100)
+            except:
+                pass
+
+df_aggregated_user = pd.DataFrame(Agg_user)
+
+# ==============================     DATA     /     MAP     /     TRANSACTION     =========================================#
+# 3
+
+path_3 = "C:/Phonepe Pulse data/data/map/transaction/hover/country/india/state/"
+map_tra_state_list = os.listdir(path_3)
+
+map_tra = {'State': [], 'Year': [], 'Quarter': [], 'District': [], 'Transaction_Count': [], 'Transaction_Amount': []}
+
+for i in map_tra_state_list:
+    p_i = path_3 + i + "/"
+    Agg_yr = os.listdir(p_i)
+
+    for j in Agg_yr:
+        p_j = p_i + j + "/"
+        Agg_yr_list = os.listdir(p_j)
+
+        for k in Agg_yr_list:
+            p_k = p_j + k
+            Data = open(p_k, 'r')
+            C = json.load(Data)
+
+            for l in C["data"]["hoverDataList"]:
+                District = l["name"]
+                count = l["metric"][0]["count"]
+                amount = l["metric"][0]["amount"]
+                map_tra['State'].append(i)
+                map_tra['Year'].append(j)
+                map_tra['Quarter'].append(int(k.strip('.json')))
+                map_tra["District"].append(District)
+                map_tra["Transaction_Count"].append(count)
+                map_tra["Transaction_Amount"].append(amount)
+
+df_map_transaction = pd.DataFrame(map_tra)
+
+# ==============================         DATA     /     MAP     /     USER         ============================================#
+# 4
+
+path_4 = "C:/Phonepe Pulse data/data/map/user/hover/country/india/state/"
+map_user_state_list = os.listdir(path_4)
+
+map_user = {"State": [], "Year": [], "Quarter": [], "District": [], "Registered_User": []}
+
+for i in map_user_state_list:
+    p_i = path_4 + i + "/"
+    Agg_yr = os.listdir(p_i)
+
+    for j in Agg_yr:
+        p_j = p_i + j + "/"
+        Agg_yr_list = os.listdir(p_j)
+
+        for k in Agg_yr_list:
+            p_k = p_j + k
+            Data = open(p_k, 'r')
+            D = json.load(Data)
+
+            for l in D["data"]["hoverData"].items():
+                district = l[0]
+                registereduser = l[1]["registeredUsers"]
+                map_user['State'].append(i)
+                map_user['Year'].append(j)
+                map_user['Quarter'].append(int(k.strip('.json')))
+                map_user["District"].append(district)
+                map_user["Registered_User"].append(registereduser)
+
+df_map_user = pd.DataFrame(map_user)
+
+# ==============================     DATA     /     TOP     /     TRANSACTION     =========================================#
+# 5
+
+path_5 = "C:/Phonepe Pulse data/data/top/transaction/country/india/state/"
+top_tra_state_list = os.listdir(path_5)
+
+top_tra = {'State': [], 'Year': [], 'Quarter': [], 'District_Pincode': [], 'Transaction_count': [],
+           'Transaction_amount': []}
+
+for i in top_tra_state_list:
+    p_i = path_5 + i + "/"
+    Agg_yr = os.listdir(p_i)
+
+    for j in Agg_yr:
+        p_j = p_i + j + "/"
+        Agg_yr_list = os.listdir(p_j)
+
+        for k in Agg_yr_list:
+            p_k = p_j + k
+            Data = open(p_k, 'r')
+            E = json.load(Data)
+
+            for l in E['data']['pincodes']:
+                Name = l['entityName']
+                count = l['metric']['count']
+                amount = l['metric']['amount']
+                top_tra['State'].append(i)
+                top_tra['Year'].append(j)
+                top_tra['Quarter'].append(int(k.strip('.json')))
+                top_tra['District_Pincode'].append(Name)
+                top_tra['Transaction_count'].append(count)
+                top_tra['Transaction_amount'].append(amount)
+
+df_top_transaction = pd.DataFrame(top_tra)
+
+# ==============================     DATA     /     TOP     /     USER     ============================================#
+# 6
+
+path_6 = "C:/Phonepe Pulse data/data/top/user/country/india/state/"
+top_user_state_list = os.listdir(path_6)
+
+top_user = {'State': [], 'Year': [], 'Quarter': [], 'District_Pincode': [], 'Registered_User': []}
+
+for i in top_user_state_list:
+    p_i = path_6 + i + "/"
+    Agg_yr = os.listdir(p_i)
+
+    for j in Agg_yr:
+        p_j = p_i + j + "/"
+        Agg_yr_list = os.listdir(p_j)
+
+        for k in Agg_yr_list:
+            p_k = p_j + k
+            Data = open(p_k, 'r')
+            F = json.load(Data)
+
+            for l in F['data']['pincodes']:
+                Name = l['name']
+                registeredUser = l['registeredUsers']
+                top_user['State'].append(i)
+                top_user['Year'].append(j)
+                top_user['Quarter'].append(int(k.strip('.json')))
+                top_user['District_Pincode'].append(Name)
+                top_user['Registered_User'].append(registeredUser)
+
+df_top_user = pd.DataFrame(top_user)
+
+#  =============     CONNECT SQL SERVER  /   CREAT DATA BASE    /  CREAT TABLE    /    STORE DATA    ========  #
+
+# Connect to the MySQL server
+mydb = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    password="Yashika2016$",
+    auth_plugin="mysql_native_password"
+)
+
+# Create a new database and use
+mycursor = mydb.cursor()
+mycursor.execute("CREATE DATABASE IF NOT EXISTS phonepe_pulse")
+
+# Close the cursor and database connection
+mycursor.close()
+mydb.close()
+
+# Connect to the new created database
+engine = create_engine('mysql+mysqlconnector://root:Yashika2016$@localhost/phonepe_pulse', echo=False)
+
+# Use pandas to insert the DataFrames datas to the SQL Database -> table1
+
+# 1
+df_aggregated_transaction.to_sql('aggregated_transaction', engine, if_exists='replace', index=False,
+                                 dtype={'State': sqlalchemy.types.VARCHAR(length=50),
+                                        'Year': sqlalchemy.types.Integer,
+                                        'Quater': sqlalchemy.types.Integer,
+                                        'Transaction_type': sqlalchemy.types.VARCHAR(length=50),
+                                        'Transaction_count': sqlalchemy.types.Integer,
+                                        'Transaction_amount': sqlalchemy.types.FLOAT(precision=5, asdecimal=True)})
+# 2
+df_aggregated_user.to_sql('aggregated_user', engine, if_exists='replace', index=False,
+                          dtype={'State': sqlalchemy.types.VARCHAR(length=50),
+                                 'Year': sqlalchemy.types.Integer,
+                                 'Quater': sqlalchemy.types.Integer,
+                                 'Brands': sqlalchemy.types.VARCHAR(length=50),
+                                 'User_Count': sqlalchemy.types.Integer,
+                                 'User_Percentage': sqlalchemy.types.FLOAT(precision=5, asdecimal=True)})
+# 3
+df_map_transaction.to_sql('map_transaction', engine, if_exists='replace', index=False,
+                          dtype={'State': sqlalchemy.types.VARCHAR(length=50),
+                                 'Year': sqlalchemy.types.Integer,
+                                 'Quater': sqlalchemy.types.Integer,
+                                 'District': sqlalchemy.types.VARCHAR(length=50),
+                                 'Transaction_Count': sqlalchemy.types.Integer,
+                                 'Transaction_Amount': sqlalchemy.types.FLOAT(precision=5, asdecimal=True)})
+# 4
+df_map_user.to_sql('map_user', engine, if_exists='replace', index=False,
+                   dtype={'State': sqlalchemy.types.VARCHAR(length=50),
+                          'Year': sqlalchemy.types.Integer,
+                          'Quater': sqlalchemy.types.Integer,
+                          'District': sqlalchemy.types.VARCHAR(length=50),
+                          'Registered_User': sqlalchemy.types.Integer, })
+# 5
+df_top_transaction.to_sql('top_transaction', engine, if_exists='replace', index=False,
+                          dtype={'State': sqlalchemy.types.VARCHAR(length=50),
+                                 'Year': sqlalchemy.types.Integer,
+                                 'Quater': sqlalchemy.types.Integer,
+                                 'District_Pincode': sqlalchemy.types.Integer,
+                                 'Transaction_count': sqlalchemy.types.Integer,
+                                 'Transaction_amount': sqlalchemy.types.FLOAT(precision=5, asdecimal=True)})
+# 6
+df_top_user.to_sql('top_user', engine, if_exists='replace', index=False,
+                   dtype={'State': sqlalchemy.types.VARCHAR(length=50),
+                          'Year': sqlalchemy.types.Integer,
+                          'Quater': sqlalchemy.types.Integer,
+                          'District_Pincode': sqlalchemy.types.Integer,
+                          'Registered_User': sqlalchemy.types.Integer, })
+# ==============================================         /   /   DASHBOARD   /   /         ================================================== #
+
+# ==============   /  CONNECT SQL SERVER  /   ACCESS DATA BASE    /   EXECUTE SQL QUERIES      /    ACCESS DATA   /   ========================= #
+
+conn = pymysql.connect(host='localhost', user='root', password='Yashika2016$', db='phonepe_pulse')
+cursor = conn.cursor()
+
+# ============================================       /     STREAMLIT DASHBOARD      /       ================================================= #
+
+# Comfiguring Streamlit GUI
+st.set_page_config(layout='wide')
+
+# Title
+st.header(':violet[Phonepe Pulse Data Visualization ]')
+st.write('**(Note)**:-This data between **2018** to **2022** in **INDIA**')
+
+# Selection option
+option = st.radio('**Select your option**', ('All India', 'State wise', 'Top Ten categories'), horizontal=True)
+
+# ===================================================       /      All India      /     ===================================================== #
+
+if option == 'All India':
+
+    # Select tab
+    tab1, tab2 = st.tabs(['Transaction', 'User'])
+
+    # -------------------------       /     All India Transaction        /        ------------------ #
+    with tab1:
+        col1, col2, col3 = st.columns(3)
         with col1:
-            # st.write('### :green[Drastical Increase in Transactions :rocket:]')
-            labels = ["US", "China", "European Union", "Russian Federation", "Brazil", "India",
-                "Rest of World"]
+            in_tr_yr = st.selectbox('**Select Year**', ('2018', '2019', '2020', '2021', '2022'), key='in_tr_yr')
+        with col2:
+            in_tr_qtr = st.selectbox('**Select Quarter**', ('1', '2', '3', '4'), key='in_tr_qtr')
+        with col3:
+            in_tr_tr_typ = st.selectbox('**Select Transaction type**',
+                                        ('Recharge & bill payments', 'Peer-to-peer payments',
+                                         'Merchant payments', 'Financial Services', 'Others'), key='in_tr_tr_typ')
 
-            # Create subplots: use 'domain' type for Pie subplot
-            fig = make_subplots(rows=1, cols=2, specs=[[{'type':'domain'}, {'type':'domain'}]])
-            fig.add_trace(go.Pie(labels=years_Table['year'], values=years_Table['Registered_Users'], name="REGISTERED USERS"),
-                        1, 1)
-            fig.add_trace(go.Pie(labels=years_Table['year'], values=years_Table['AppOpenings'], name="APP OPENINGS"),
-                        1, 2)
+        # SQL Query
 
-            # Use `hole` to create a donut-like pie chart
-            fig.update_traces(hole=.6, hoverinfo="label+percent+name")
+        # Transaction Analysis bar chart query
+        cursor.execute(
+            f"SELECT State, Transaction_amount FROM aggregated_transaction WHERE Year = '{in_tr_yr}' AND Quarter = '{in_tr_qtr}' AND Transaction_type = '{in_tr_tr_typ}';")
+        in_tr_tab_qry_rslt = cursor.fetchall()
+        df_in_tr_tab_qry_rslt = pd.DataFrame(np.array(in_tr_tab_qry_rslt), columns=['State', 'Transaction_amount'])
+        df_in_tr_tab_qry_rslt1 = df_in_tr_tab_qry_rslt.set_index(pd.Index(range(1, len(df_in_tr_tab_qry_rslt) + 1)))
 
-            fig.update_layout(
-                title_text="USERS DATA (2018 TO 2022)",
-                # Add annotations in the center of the donut pies.
-                annotations=[dict(text='USERS', x=0.18, y=0.5, font_size=20, showarrow=False),
-                            dict(text='APP', x=0.82, y=0.5, font_size=20, showarrow=False)])
-            # st.plotly_chart(fig1)
-            st.plotly_chart(fig)
-        with col2:  
-            # st.write('#### :green[Year Wise Transaction Analysis in INDIA]')      
-            st.markdown(years_Table.style.hide(axis="index").to_html(), unsafe_allow_html=True)
-            st.info(
-            """
-            Important Observation:
-            -  We can see that the Registered Users and App openings are increasing year by year
-            
-            """
-            )
+        # Transaction Analysis table query
+        cursor.execute(
+            f"SELECT State, Transaction_count, Transaction_amount FROM aggregated_transaction WHERE Year = '{in_tr_yr}' AND Quarter = '{in_tr_qtr}' AND Transaction_type = '{in_tr_tr_typ}';")
+        in_tr_anly_tab_qry_rslt = cursor.fetchall()
+        df_in_tr_anly_tab_qry_rslt = pd.DataFrame(np.array(in_tr_anly_tab_qry_rslt),
+                                                  columns=['State', 'Transaction_count', 'Transaction_amount'])
+        df_in_tr_anly_tab_qry_rslt1 = df_in_tr_anly_tab_qry_rslt.set_index(
+            pd.Index(range(1, len(df_in_tr_anly_tab_qry_rslt) + 1)))
 
-st.write('# :red[TOP 3 STATES DATA]')
-c1,c2=st.columns(2)
-with c1:
-    Year = st.selectbox(
-            'Please select the Year',
-            ('2022', '2021','2020','2019','2018'),key='y1h2k')
-with c2:
-    Quarter = st.selectbox(
-            'Please select the Quarter',
-            ('1', '2', '3','4'),key='qgwe2')
-Data_Map_User_df=Data_Aggregated_User_Summary_df.copy() 
-top_states=Data_Map_User_df.loc[(Data_Map_User_df['Year'] == int(Year)) & (Data_Map_User_df['Quarter'] ==int(Quarter))]
-top_states_r = top_states.sort_values(by=['Registered_Users'], ascending=False)
-top_states_a = top_states.sort_values(by=['AppOpenings'], ascending=False) 
+        # Total Transaction Amount table query
+        cursor.execute(
+            f"SELECT SUM(Transaction_amount), AVG(Transaction_amount) FROM aggregated_transaction WHERE Year = '{in_tr_yr}' AND Quarter = '{in_tr_qtr}' AND Transaction_type = '{in_tr_tr_typ}';")
+        in_tr_am_qry_rslt = cursor.fetchall()
+        df_in_tr_am_qry_rslt = pd.DataFrame(np.array(in_tr_am_qry_rslt), columns=['Total', 'Average'])
+        df_in_tr_am_qry_rslt1 = df_in_tr_am_qry_rslt.set_index(['Average'])
 
-top_states_T=Data_Aggregated_Transaction_df.loc[(Data_Aggregated_Transaction_df['Year'] == int(Year)) & (Data_Aggregated_Transaction_df['Quarter'] ==int(Quarter))]
-topst=top_states_T.groupby('State')
-x=topst.sum().sort_values(by=['Total_Transactions_count'], ascending=False)
-y=topst.sum().sort_values(by=['Total_Amount'], ascending=False)
-col1, col2, col3, col4= st.columns([2.5,2.5,2.5,2.5])
-with col1:
-    rt=top_states_r[1:4]
-    st.markdown("#### :orange[Registered Users :bust_in_silhouette:]")
-    st.markdown(rt[[ 'State','Registered_Users']].style.hide(axis="index").to_html(), unsafe_allow_html=True)
-with col2:
-    at=top_states_a[1:4]
-    st.markdown("#### :orange[PhonePeApp Openings:iphone:]")
-    st.markdown(at[['State','AppOpenings']].style.hide(axis="index").to_html(), unsafe_allow_html=True)
-with col3:
-    st.markdown("#### :orange[Total Transactions:currency_exchange:]")
-    st.write(x[['Total_Transactions_count']][1:4])
-with col4:
-    st.markdown("#### :orange[Total Amount :dollar:]")
-    st.write(y['Total_Amount'][1:4])      
+        # Total Transaction Count table query
+        cursor.execute(
+            f"SELECT SUM(Transaction_count), AVG(Transaction_count) FROM aggregated_transaction WHERE Year = '{in_tr_yr}' AND Quarter = '{in_tr_qtr}' AND Transaction_type = '{in_tr_tr_typ}';")
+        in_tr_co_qry_rslt = cursor.fetchall()
+        df_in_tr_co_qry_rslt = pd.DataFrame(np.array(in_tr_co_qry_rslt), columns=['Total', 'Average'])
+        df_in_tr_co_qry_rslt1 = df_in_tr_co_qry_rslt.set_index(['Average'])
+
+        # --------- / Output  /  -------- #
+
+        # ------    /  Geo visualization dashboard for Transaction /   ---- #
+        # Drop a State column from df_in_tr_tab_qry_rslt
+        df_in_tr_tab_qry_rslt.drop(columns=['State'], inplace=True)
+        # Clone the gio data
+        url = "https://gist.githubusercontent.com/jbrobst/56c13bbbf9d97d187fea01ca62ea5112/raw/e388c4cae20aa53cb5090210a42ebb9b765c0a36/india_states.geojson"
+        response = requests.get(url)
+        data1 = json.loads(response.content)
+        # Extract state names and sort them in alphabetical order
+        state_names_tra = [feature['properties']['ST_NM'] for feature in data1['features']]
+        state_names_tra.sort()
+        # Create a DataFrame with the state names column
+        df_state_names_tra = pd.DataFrame({'State': state_names_tra})
+        # Combine the Gio State name with df_in_tr_tab_qry_rslt
+        df_state_names_tra['Transaction_amount'] = df_in_tr_tab_qry_rslt
+        # convert dataframe to csv file
+        df_state_names_tra.to_csv('State_trans.csv', index=False)
+        # Read csv
+        df_tra = pd.read_csv('State_trans.csv')
+        # Geo plot
+        fig_tra = px.choropleth(
+            df_tra,
+            geojson="https://gist.githubusercontent.com/jbrobst/56c13bbbf9d97d187fea01ca62ea5112/raw/e388c4cae20aa53cb5090210a42ebb9b765c0a36/india_states.geojson",
+            featureidkey='properties.ST_NM', locations='State', color='Transaction_amount',
+            color_continuous_scale='thermal', title='Transaction Analysis')
+        fig_tra.update_geos(fitbounds="locations", visible=False)
+        fig_tra.update_layout(title_font=dict(size=33), title_font_color='#6739b7', height=800)
+        st.plotly_chart(fig_tra, use_container_width=True)
+
+        # ---------   /   All India Transaction Analysis Bar chart  /  ----- #
+        df_in_tr_tab_qry_rslt1['State'] = df_in_tr_tab_qry_rslt1['State'].astype(str)
+        df_in_tr_tab_qry_rslt1['Transaction_amount'] = df_in_tr_tab_qry_rslt1['Transaction_amount'].astype(float)
+        df_in_tr_tab_qry_rslt1_fig = px.bar(df_in_tr_tab_qry_rslt1, x='State', y='Transaction_amount',
+                                            color='Transaction_amount', color_continuous_scale='thermal',
+                                            title='Transaction Analysis Chart', height=700, )
+        df_in_tr_tab_qry_rslt1_fig.update_layout(title_font=dict(size=33), title_font_color='#6739b7')
+        st.plotly_chart(df_in_tr_tab_qry_rslt1_fig, use_container_width=True)
+
+        # -------  /  All India Total Transaction calculation Table   /   ----  #
+        st.header(':violet[Total calculation]')
+
+        col4, col5 = st.columns(2)
+        with col4:
+            st.subheader('Transaction Analysis')
+            st.dataframe(df_in_tr_anly_tab_qry_rslt1)
+        with col5:
+            st.subheader('Transaction Amount')
+            st.dataframe(df_in_tr_am_qry_rslt1)
+            st.subheader('Transaction Count')
+            st.dataframe(df_in_tr_co_qry_rslt1)
+
+    # ---------------------------------------       /     All India User        /        ------------------------------------ #
+    with tab2:
+
+        col1, col2 = st.columns(2)
+        with col1:
+            in_us_yr = st.selectbox('**Select Year**', ('2018', '2019', '2020', '2021', '2022'), key='in_us_yr')
+        with col2:
+            in_us_qtr = st.selectbox('**Select Quarter**', ('1', '2', '3', '4'), key='in_us_qtr')
+
+        # SQL Query
+
+        # User Analysis Bar chart query
+        cursor.execute(
+            f"SELECT State, SUM(User_Count) FROM aggregated_user WHERE Year = '{in_us_yr}' AND Quarter = '{in_us_qtr}' GROUP BY State;")
+        in_us_tab_qry_rslt = cursor.fetchall()
+        df_in_us_tab_qry_rslt = pd.DataFrame(np.array(in_us_tab_qry_rslt), columns=['State', 'User Count'])
+        df_in_us_tab_qry_rslt1 = df_in_us_tab_qry_rslt.set_index(pd.Index(range(1, len(df_in_us_tab_qry_rslt) + 1)))
+
+        # Total User Count table query
+        cursor.execute(
+            f"SELECT SUM(User_Count), AVG(User_Count) FROM aggregated_user WHERE Year = '{in_us_yr}' AND Quarter = '{in_us_qtr}';")
+        in_us_co_qry_rslt = cursor.fetchall()
+        df_in_us_co_qry_rslt = pd.DataFrame(np.array(in_us_co_qry_rslt), columns=['Total', 'Average'])
+        df_in_us_co_qry_rslt1 = df_in_us_co_qry_rslt.set_index(['Average'])
+
+        # ---------  /  Output  /  -------- #
+
+        # ------    /  Geo visualization dashboard for User  /   ---- #
+        # Drop a State column from df_in_us_tab_qry_rslt
+        df_in_us_tab_qry_rslt.drop(columns=['State'], inplace=True)
+        # Clone the gio data
+        url = "https://gist.githubusercontent.com/jbrobst/56c13bbbf9d97d187fea01ca62ea5112/raw/e388c4cae20aa53cb5090210a42ebb9b765c0a36/india_states.geojson"
+        response = requests.get(url)
+        data2 = json.loads(response.content)
+        # Extract state names and sort them in alphabetical order
+        state_names_use = [feature['properties']['ST_NM'] for feature in data2['features']]
+        state_names_use.sort()
+        # Create a DataFrame with the state names column
+        df_state_names_use = pd.DataFrame({'State': state_names_use})
+        # Combine the Gio State name with df_in_tr_tab_qry_rslt
+        df_state_names_use['User Count'] = df_in_us_tab_qry_rslt
+        # convert dataframe to csv file
+        df_state_names_use.to_csv('State_user.csv', index=False)
+        # Read csv
+        df_use = pd.read_csv('State_user.csv')
+        # Geo plot
+        fig_use = px.choropleth(
+            df_use,
+            geojson="https://gist.githubusercontent.com/jbrobst/56c13bbbf9d97d187fea01ca62ea5112/raw/e388c4cae20aa53cb5090210a42ebb9b765c0a36/india_states.geojson",
+            featureidkey='properties.ST_NM', locations='State', color='User Count', color_continuous_scale='thermal',
+            title='User Analysis')
+        fig_use.update_geos(fitbounds="locations", visible=False)
+        fig_use.update_layout(title_font=dict(size=33), title_font_color='#6739b7', height=800)
+        st.plotly_chart(fig_use, use_container_width=True)
+
+        # ----   /   All India User Analysis Bar chart   /     -------- #
+        df_in_us_tab_qry_rslt1['State'] = df_in_us_tab_qry_rslt1['State'].astype(str)
+        df_in_us_tab_qry_rslt1['User Count'] = df_in_us_tab_qry_rslt1['User Count'].astype(int)
+        df_in_us_tab_qry_rslt1_fig = px.bar(df_in_us_tab_qry_rslt1, x='State', y='User Count', color='User Count',
+                                            color_continuous_scale='thermal', title='User Analysis Chart', height=700, )
+        df_in_us_tab_qry_rslt1_fig.update_layout(title_font=dict(size=33), title_font_color='#6739b7')
+        st.plotly_chart(df_in_us_tab_qry_rslt1_fig, use_container_width=True)
+
+        # -----   /   All India Total User calculation Table   /   ----- #
+        st.header(':violet[Total calculation]')
+
+        col3, col4 = st.columns(2)
+        with col3:
+            st.subheader('User Analysis')
+            st.dataframe(df_in_us_tab_qry_rslt1)
+        with col4:
+            st.subheader('User Count')
+            st.dataframe(df_in_us_co_qry_rslt1)
 
 
 
+# ==============================================          /     State wise       /             ============================================== #
+elif option == 'State wise':
+
+    # Select tab
+    tab3, tab4 = st.tabs(['Transaction', 'User'])
+
+    # ---------------------------------       /     State wise Transaction        /        ------------------------------- #
+    with tab3:
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st_tr_st = st.selectbox('**Select State**', (
+            'andaman-&-nicobar-islands', 'andhra-pradesh', 'arunachal-pradesh', 'assam', 'bihar',
+            'chandigarh', 'chhattisgarh', 'dadra-&-nagar-haveli-&-daman-&-diu', 'delhi', 'goa', 'gujarat', 'haryana',
+            'himachal-pradesh',
+            'jammu-&-kashmir', 'jharkhand', 'karnataka', 'kerala', 'ladakh', 'lakshadweep', 'madhya-pradesh',
+            'maharashtra', 'manipur',
+            'meghalaya', 'mizoram', 'nagaland', 'odisha', 'puducherry', 'punjab', 'rajasthan', 'sikkim', 'tamil-nadu',
+            'telangana',
+            'tripura', 'uttar-pradesh', 'uttarakhand', 'west-bengal'), key='st_tr_st')
+        with col2:
+            st_tr_yr = st.selectbox('**Select Year**', ('2018', '2019', '2020', '2021', '2022'), key='st_tr_yr')
+        with col3:
+            st_tr_qtr = st.selectbox('**Select Quarter**', ('1', '2', '3', '4'), key='st_tr_qtr')
+
+        # SQL Query
+
+        # Transaction Analysis bar chart query
+        cursor.execute(
+            f"SELECT Transaction_type, Transaction_amount FROM aggregated_transaction WHERE State = '{st_tr_st}' AND Year = '{st_tr_yr}' AND Quarter = '{st_tr_qtr}';")
+        st_tr_tab_bar_qry_rslt = cursor.fetchall()
+        df_st_tr_tab_bar_qry_rslt = pd.DataFrame(np.array(st_tr_tab_bar_qry_rslt),
+                                                 columns=['Transaction_type', 'Transaction_amount'])
+        df_st_tr_tab_bar_qry_rslt1 = df_st_tr_tab_bar_qry_rslt.set_index(
+            pd.Index(range(1, len(df_st_tr_tab_bar_qry_rslt) + 1)))
+
+        # Transaction Analysis table query
+        cursor.execute(
+            f"SELECT Transaction_type, Transaction_count, Transaction_amount FROM aggregated_transaction WHERE State = '{st_tr_st}' AND Year = '{st_tr_yr}' AND Quarter = '{st_tr_qtr}';")
+        st_tr_anly_tab_qry_rslt = cursor.fetchall()
+        df_st_tr_anly_tab_qry_rslt = pd.DataFrame(np.array(st_tr_anly_tab_qry_rslt),
+                                                  columns=['Transaction_type', 'Transaction_count',
+                                                           'Transaction_amount'])
+        df_st_tr_anly_tab_qry_rslt1 = df_st_tr_anly_tab_qry_rslt.set_index(
+            pd.Index(range(1, len(df_st_tr_anly_tab_qry_rslt) + 1)))
+
+        # Total Transaction Amount table query
+        cursor.execute(
+            f"SELECT SUM(Transaction_amount), AVG(Transaction_amount) FROM aggregated_transaction WHERE State = '{st_tr_st}' AND Year = '{st_tr_yr}' AND Quarter = '{st_tr_qtr}';")
+        st_tr_am_qry_rslt = cursor.fetchall()
+        df_st_tr_am_qry_rslt = pd.DataFrame(np.array(st_tr_am_qry_rslt), columns=['Total', 'Average'])
+        df_st_tr_am_qry_rslt1 = df_st_tr_am_qry_rslt.set_index(['Average'])
+
+        # Total Transaction Count table query
+        cursor.execute(
+            f"SELECT SUM(Transaction_count), AVG(Transaction_count) FROM aggregated_transaction WHERE State = '{st_tr_st}' AND Year ='{st_tr_yr}' AND Quarter = '{st_tr_qtr}';")
+        st_tr_co_qry_rslt = cursor.fetchall()
+        df_st_tr_co_qry_rslt = pd.DataFrame(np.array(st_tr_co_qry_rslt), columns=['Total', 'Average'])
+        df_st_tr_co_qry_rslt1 = df_st_tr_co_qry_rslt.set_index(['Average'])
+
+        # ---------  /  Output  /  -------- #
+
+        # -----    /   State wise Transaction Analysis bar chart   /   ------ #
+        df_st_tr_tab_bar_qry_rslt1['Transaction_type'] = df_st_tr_tab_bar_qry_rslt1['Transaction_type'].astype(str)
+        df_st_tr_tab_bar_qry_rslt1['Transaction_amount'] = df_st_tr_tab_bar_qry_rslt1['Transaction_amount'].astype(
+            float)
+        df_st_tr_tab_bar_qry_rslt1_fig = px.bar(df_st_tr_tab_bar_qry_rslt1, x='Transaction_type',
+                                                y='Transaction_amount', color='Transaction_amount',
+                                                color_continuous_scale='thermal', title='Transaction Analysis Chart',
+                                                height=500, )
+        df_st_tr_tab_bar_qry_rslt1_fig.update_layout(title_font=dict(size=33), title_font_color='#6739b7')
+        st.plotly_chart(df_st_tr_tab_bar_qry_rslt1_fig, use_container_width=True)
+
+        # ------  /  State wise Total Transaction calculation Table  /  ---- #
+        st.header(':violet[Total calculation]')
+
+        col4, col5 = st.columns(2)
+        with col4:
+            st.subheader('Transaction Analysis')
+            st.dataframe(df_st_tr_anly_tab_qry_rslt1)
+        with col5:
+            st.subheader('Transaction Amount')
+            st.dataframe(df_st_tr_am_qry_rslt1)
+            st.subheader('Transaction Count')
+            st.dataframe(df_st_tr_co_qry_rslt1)
+
+    # -----------------------------------------       /     State wise User        /        ---------------------------------- #
+    with tab4:
+
+        col5, col6 = st.columns(2)
+        with col5:
+            st_us_st = st.selectbox('**Select State**', (
+            'andaman-&-nicobar-islands', 'andhra-pradesh', 'arunachal-pradesh', 'assam', 'bihar',
+            'chandigarh', 'chhattisgarh', 'dadra-&-nagar-haveli-&-daman-&-diu', 'delhi', 'goa', 'gujarat', 'haryana',
+            'himachal-pradesh',
+            'jammu-&-kashmir', 'jharkhand', 'karnataka', 'kerala', 'ladakh', 'lakshadweep', 'madhya-pradesh',
+            'maharashtra', 'manipur',
+            'meghalaya', 'mizoram', 'nagaland', 'odisha', 'puducherry', 'punjab', 'rajasthan', 'sikkim', 'tamil-nadu',
+            'telangana',
+            'tripura', 'uttar-pradesh', 'uttarakhand', 'west-bengal'), key='st_us_st')
+        with col6:
+            st_us_yr = st.selectbox('**Select Year**', ('2018', '2019', '2020', '2021', '2022'), key='st_us_yr')
+
+        # SQL Query
+
+        # User Analysis Bar chart query
+        cursor.execute(
+            f"SELECT Quarter, SUM(User_Count) FROM aggregated_user WHERE State = '{st_us_st}' AND Year = '{st_us_yr}' GROUP BY Quarter;")
+        st_us_tab_qry_rslt = cursor.fetchall()
+        df_st_us_tab_qry_rslt = pd.DataFrame(np.array(st_us_tab_qry_rslt), columns=['Quarter', 'User Count'])
+        df_st_us_tab_qry_rslt1 = df_st_us_tab_qry_rslt.set_index(pd.Index(range(1, len(df_st_us_tab_qry_rslt) + 1)))
+
+        # Total User Count table query
+        cursor.execute(
+            f"SELECT SUM(User_Count), AVG(User_Count) FROM aggregated_user WHERE State = '{st_us_st}' AND Year = '{st_us_yr}';")
+        st_us_co_qry_rslt = cursor.fetchall()
+        df_st_us_co_qry_rslt = pd.DataFrame(np.array(st_us_co_qry_rslt), columns=['Total', 'Average'])
+        df_st_us_co_qry_rslt1 = df_st_us_co_qry_rslt.set_index(['Average'])
+
+        # ---------  /  Output  /  -------- #
+
+        # -----   /   All India User Analysis Bar chart   /   ----- #
+        df_st_us_tab_qry_rslt1['Quarter'] = df_st_us_tab_qry_rslt1['Quarter'].astype(int)
+        df_st_us_tab_qry_rslt1['User Count'] = df_st_us_tab_qry_rslt1['User Count'].astype(int)
+        df_st_us_tab_qry_rslt1_fig = px.bar(df_st_us_tab_qry_rslt1, x='Quarter', y='User Count', color='User Count',
+                                            color_continuous_scale='thermal', title='User Analysis Chart', height=500, )
+        df_st_us_tab_qry_rslt1_fig.update_layout(title_font=dict(size=33), title_font_color='#6739b7')
+        st.plotly_chart(df_st_us_tab_qry_rslt1_fig, use_container_width=True)
+
+        # ------    /   State wise User Total User calculation Table   /   -----#
+        st.header(':violet[Total calculation]')
+
+        col3, col4 = st.columns(2)
+        with col3:
+            st.subheader('User Analysis')
+            st.dataframe(df_st_us_tab_qry_rslt1)
+        with col4:
+            st.subheader('User Count')
+            st.dataframe(df_st_us_co_qry_rslt1)
 
 
-Data_Aggregated_Transaction_Table
-#Data_Aggregated_Transaction_Table 3694
-#Data_Aggregated_Transaction_Summary_Table 740
-#Data_Aggregated_User_Table 6919
-#Data_Aggregated_User_Summary_Table 740
-Data_Aggregated_Transaction_Table = pd.DataFrame({}) 
-Data_Aggregated_Transaction_Summary_Table = pd.DataFrame({})
-Mapped
-#Data_Map_Transaction_Table 15356
-#Data_Map_User_Table 6868
 
-# INITIALIZATION
-import os
-from os import walk
-from pathlib import Path
-import pandas as pd
+# ==============================================          /     Top categories       /             =========================================== #
+else:
 
-def Aggregated_Transaction_Table_fun(state,year,quarter,path):
-    global Data_Aggregated_Transaction_Table
-    global Data_Aggregated_Transaction_Summary_Table
-    dft = pd.read_json(path)
-    
-    dataFrom=dft['data']['from']
-    dataTo=dft['data']['to'] 
-    T_row={'State':state,'Year': year,'Quarter':quarter,'Data From':dataFrom,'Data To':dataTo}
-    Data_Aggregated_Transaction_Summary_Table=Data_Aggregated_Transaction_Summary_Table.append(T_row,ignore_index = True)
-    
-    DAT_temp=dft['data']['transactionData']
-    if DAT_temp:      
-        for i in DAT_temp:
-            DAT_row={ 'Payment Mode':i['name'], 'Total Transactions count':i['paymentInstruments'][0]['count'], 'Total Amount':i['paymentInstruments'][0]['amount'],'Quarter':quarter,'Year': year,'State':state}  
-            Data_Aggregated_Transaction_Table = Data_Aggregated_Transaction_Table.append(DAT_row, ignore_index = True)
-        
-# PATH FOR ALL STATES IN AGGREGATED TRANSACTIONS
-t_s= r'C:\Users\91939\2MY_DATA_SCIENCE\12_My_DS_Tasks\project2_Phonepay\data\aggregated\transaction\country\india\state'
-t_path = r'C:\Users\91939\2MY_DATA_SCIENCE\12_My_DS_Tasks\project2_Phonepay\data\aggregated\transaction\country\india\state'
-t_states = os.listdir(t_path) # NAMES OF ALL DIRECTORIES IN STATES (36 STATES)
+    # Select tab
+    tab5, tab6 = st.tabs(['Transaction', 'User'])
 
-for i in t_states:                     # ITERATE ALL STATES
-    #print(i)
-    p=t_s+'\\'+i                       # PICK ONE STATE PATH
-    states_year=os.listdir(p)          # PICK 2018 TO 2022 DIRECTORIES IN ONE STATE
-    for j in states_year:              # ITERATE YEARS 2018 TO 2022
-        #print(j)
-        pt=p+'\\'+j                    # PICK ONE YEAR PATH
-        f=[]
-        for (dirpath, dirnames, filenames) in walk(pt):
-            f.extend(filenames)        # PICK ALL THE QFILES IN SELECTED YEAR 
-            break
-        for k in f:                    # ITERATE THROUGH QFILES 1.JSON TO 4.JSON
-            fp=pt+'\\'+k               # PICK ONE QFILE PATH
-            fn=Path(fp).stem           # NOTE DOWN QUARTER
-            #print(i,j,fn)
-            Aggregated_Transaction_Table_fun(i,j,fn,fp) # CALL FUNCTION WITH STATE,YEAR,QFILE,QUARTER
-            #print(fp) 
-            
-Data_Aggregated_Transaction_Table
-       
-Data_Aggregated_Transaction_Table.to_csv('Data_Aggregated_Transaction_Table.csv',index=False)  
-print(len(Data_Aggregated_Transaction_Table))
-Data_Aggregated_Transaction_Table.head(5)
+    # ---------------------------------------       /     All India Top Transaction        /        ---------------------------- #
+    with tab5:
+        top_tr_yr = st.selectbox('**Select Year**', ('2018', '2019', '2020', '2021', '2022'), key='top_tr_yr')
 
-Data_Aggregated_Transaction_Summary_Table
-       
- Data_Aggregated_Transaction_Summary_Table.to_csv('Data_Aggregated_Transaction_Summary_Table.csv',index=False)  
-print(len(Data_Aggregated_Transaction_Summary_Table))
-Data_Aggregated_Transaction_Summary_Table.head(5)
+        # SQL Query
 
-Data_Aggregated_User_Table
-Data_Aggregated_User_Table = pd.DataFrame({}) 
-Data_Aggregated_User_Summary_Table = pd.DataFrame({})
+        # Top Transaction Analysis bar chart query
+        cursor.execute(
+            f"SELECT State, SUM(Transaction_amount) As Transaction_amount FROM top_transaction WHERE Year = '{top_tr_yr}' GROUP BY State ORDER BY Transaction_amount DESC LIMIT 10;")
+        top_tr_tab_qry_rslt = cursor.fetchall()
+        df_top_tr_tab_qry_rslt = pd.DataFrame(np.array(top_tr_tab_qry_rslt),
+                                              columns=['State', 'Top Transaction amount'])
+        df_top_tr_tab_qry_rslt1 = df_top_tr_tab_qry_rslt.set_index(pd.Index(range(1, len(df_top_tr_tab_qry_rslt) + 1)))
 
-# INITIALIZATION
-import os
-from os import walk
-from pathlib import Path
-import pandas as pd
+        # Top Transaction Analysis table query
+        cursor.execute(
+            f"SELECT State, SUM(Transaction_amount) as Transaction_amount, SUM(Transaction_count) as Transaction_count FROM top_transaction WHERE Year = '{top_tr_yr}' GROUP BY State ORDER BY Transaction_amount DESC LIMIT 10;")
+        top_tr_anly_tab_qry_rslt = cursor.fetchall()
+        df_top_tr_anly_tab_qry_rslt = pd.DataFrame(np.array(top_tr_anly_tab_qry_rslt),
+                                                   columns=['State', 'Top Transaction amount',
+                                                            'Total Transaction count'])
+        df_top_tr_anly_tab_qry_rslt1 = df_top_tr_anly_tab_qry_rslt.set_index(
+            pd.Index(range(1, len(df_top_tr_anly_tab_qry_rslt) + 1)))
 
-def Aggregated_User_Table_fun(state,year,quarter,path):
-    global Data_Aggregated_User_Table
-    global Data_Aggregated_User_Summary_Table
-    dfu = pd.read_json(path)
-    
-    registeredUsers=dfu['data']['aggregated']['registeredUsers']
-    appOpens=dfu['data']['aggregated']['appOpens']
-    U_row={'State':state,'Year': year,'Quarter':quarter,'Registered Users':registeredUsers,'AppOpenings':appOpens}
-    Data_Aggregated_User_Summary_Table= Data_Aggregated_User_Summary_Table.append(U_row, ignore_index = True )
+        # ---------  /  Output  /  -------- #
 
-    DAU_temp=dfu['data']['usersByDevice']
-    if DAU_temp:  
-        for i in DAU_temp:
-            DAU_row={ 'Brand Name':i['brand'], 'Registered Users Count':i['count'], 'Percentage Share of Brand':i['percentage'],'Quarter':quarter,'Year': year,'State':state}  
-            Data_Aggregated_User_Table = Data_Aggregated_User_Table.append(DAU_row, ignore_index = True)
+        # -----   /   All India Transaction Analysis Bar chart   /   ----- #
+        df_top_tr_tab_qry_rslt1['State'] = df_top_tr_tab_qry_rslt1['State'].astype(str)
+        df_top_tr_tab_qry_rslt1['Top Transaction amount'] = df_top_tr_tab_qry_rslt1['Top Transaction amount'].astype(
+            float)
+        df_top_tr_tab_qry_rslt1_fig = px.bar(df_top_tr_tab_qry_rslt1, x='State', y='Top Transaction amount',
+                                             color='Top Transaction amount', color_continuous_scale='thermal',
+                                             title='Top Transaction Analysis Chart', height=600, )
+        df_top_tr_tab_qry_rslt1_fig.update_layout(title_font=dict(size=33), title_font_color='#6739b7')
+        st.plotly_chart(df_top_tr_tab_qry_rslt1_fig, use_container_width=True)
 
-s= r'C:\Users\91939\2MY_DATA_SCIENCE\12_My_DS_Tasks\project2_Phonepay\data\aggregated\user\country\india\state'
-path = r'C:\Users\91939\2MY_DATA_SCIENCE\12_My_DS_Tasks\project2_Phonepay\data\aggregated\user\country\india\state'
-states = os.listdir(u_path)
+        # -----   /   All India Total Transaction calculation Table   /   ----- #
+        st.header(':violet[Total calculation]')
+        st.subheader('Top Transaction Analysis')
+        st.dataframe(df_top_tr_anly_tab_qry_rslt1)
 
-for i in states:
-    #print(i)
-    p=s+'\\'+i
-    states_year=os.listdir(p)
-    for j in states_year:
-        #print(j)
-        pt=p+'\\'+j
-        f=[]
-        for (dirpath, dirnames, filenames) in walk(pt):
-            f.extend(filenames)
-            break
-        for k in f:
-            fp=pt+'\\'+k            
-            fn=Path(fp).stem
-            #print(i,j,fn)
-            Aggregated_User_Table_fun(i,j,fn,fp)
-            #print(fp)  
-            
-Data_Aggregated_User_Table
+    # -------------------------       /     All India Top User        /        ------------------ #
+    with tab6:
+        top_us_yr = st.selectbox('**Select Year**', ('2018', '2019', '2020', '2021', '2022'), key='top_us_yr')
 
-Data_Aggregated_User_Table.to_csv('Data_Aggregated_User_Table.csv',index=False) 
-print(len(Data_Aggregated_User_Table))
-Data_Aggregated_User_Table.head(5)
+        # SQL Query
 
-Data_Aggregated_User_Summary_Table
-Data_Aggregated_User_Summary_Table.to_csv('Data_Aggregated_User_Summary_Table.csv',index=False) 
-print(len(Data_Aggregated_User_Summary_Table))
-Data_Aggregated_User_Summary_Table.head(5)
+        # Top User Analysis bar chart query
+        cursor.execute(
+            f"SELECT State, SUM(Registered_User) AS Top_user FROM top_user WHERE Year='{top_us_yr}' GROUP BY State ORDER BY Top_user DESC LIMIT 10;")
+        top_us_tab_qry_rslt = cursor.fetchall()
+        df_top_us_tab_qry_rslt = pd.DataFrame(np.array(top_us_tab_qry_rslt), columns=['State', 'Total User count'])
+        df_top_us_tab_qry_rslt1 = df_top_us_tab_qry_rslt.set_index(pd.Index(range(1, len(df_top_us_tab_qry_rslt) + 1)))
 
-Data_Map_Transaction_Table
+        # ---------  /  Output  /  -------- #
 
-Data_Map_Transaction_Table = pd.DataFrame({})
+        # -----   /   All India User Analysis Bar chart   /   ----- #
+        df_top_us_tab_qry_rslt1['State'] = df_top_us_tab_qry_rslt1['State'].astype(str)
+        df_top_us_tab_qry_rslt1['Total User count'] = df_top_us_tab_qry_rslt1['Total User count'].astype(float)
+        df_top_us_tab_qry_rslt1_fig = px.bar(df_top_us_tab_qry_rslt1, x='State', y='Total User count',
+                                             color='Total User count', color_continuous_scale='thermal',
+                                             title='Top User Analysis Chart', height=600, )
+        df_top_us_tab_qry_rslt1_fig.update_layout(title_font=dict(size=33), title_font_color='#6739b7')
+        st.plotly_chart(df_top_us_tab_qry_rslt1_fig, use_container_width=True)
 
-# INITIALIZATION
-import os
-from os import walk
-from pathlib import Path
-import pandas as pd
+        # -----   /   All India Total Transaction calculation Table   /   ----- #
+        st.header(':violet[Total calculation]')
+        st.subheader('Total User Analysis')
+        st.dataframe(df_top_us_tab_qry_rslt1)
 
-def Data_Map_Transaction_Table_Fun(state,year,quarter,path):
-    global Data_Map_Transaction_Table
-    dfmt = pd.read_json(path)
-    DMT_temp=dfmt['data']['hoverDataList'] 
-    if DMT_temp:
-        for i in DMT_temp:
-            DMT_row={ 'Place Name':i['name'], 'Total Transactions count':i['metric'][0]['count'], 'Total Amount':i['metric'][0]['amount'],'Quarter':quarter,'Year': year,'State':state}  
-            Data_Map_Transaction_Table = Data_Map_Transaction_Table.append(DMT_row, ignore_index = True)  
-
-t_s= r'C:\Users\91939\2MY_DATA_SCIENCE\12_My_DS_Tasks\project2_Phonepay\data\map\transaction\hover\country\india\state'
-t_path = r'C:\Users\91939\2MY_DATA_SCIENCE\12_My_DS_Tasks\project2_Phonepay\data\map\transaction\hover\country\india\state'
-t_states = os.listdir(t_path) 
-
-for i in t_states:
-    #print(i)
-    p=t_s+'\\'+i
-    states_year=os.listdir(p)
-    for j in states_year:
-        #print(j)
-        pt=p+'\\'+j
-        f=[]
-        for (dirpath, dirnames, filenames) in walk(pt):
-            f.extend(filenames)
-            break
-        for k in f:
-            fp=pt+'\\'+k            
-            fn=Path(fp).stem
-            #print(i,j,fn)
-            Data_Map_Transaction_Table_Fun(i,j,fn,fp)
-            #print(fp) 
-          
-          
- Data_Map_Transaction_Table
- Data_Map_Transaction_Table.to_csv('Data_Map_Transaction_Table.csv',index=False) 
-print(len(Data_Map_Transaction_Table))
-Data_Map_Transaction_Table.head(5)
-
-Data_Map_User_Table
-Data_Map_User_Table = pd.DataFrame({}) 
-
-# INITIALIZATION
-import os
-from os import walk
-from pathlib import Path
-import pandas as pd
-
-def Data_Map_User_Table_Fun(state,year,quarter,path):
-    global Data_Map_User_Table
-    dfmu = pd.read_json(path)
-    
-    DMU_temp=dfmu['data']['hoverData'] 
-    if DMU_temp:
-        for i in DMU_temp:
-            #print(i, DMU_temp[i]['registeredUsers'],DMU_temp[i]['appOpens'])
-            DMU_row={ 'Place Name':i, 'Registered Users Count':DMU_temp[i]['registeredUsers'], 'App Openings':DMU_temp[i]['appOpens'],'Quarter':quarter,'Year': year,'State':state}  
-            Data_Map_User_Table = Data_Map_User_Table.append(DMU_row, ignore_index = True)
-
-t_s= r'C:\Users\91939\2MY_DATA_SCIENCE\12_My_DS_Tasks\project2_Phonepay\data\map\user\hover\country\india\state'
-t_path = r'C:\Users\91939\2MY_DATA_SCIENCE\12_My_DS_Tasks\project2_Phonepay\data\map\user\hover\country\india\state'
-t_states = os.listdir(t_path) 
-
-for i in t_states:
-    #print(i)
-    p=t_s+'\\'+i
-    states_year=os.listdir(p)
-    for j in states_year:
-        #print(j)
-        pt=p+'\\'+j
-        f=[]
-        for (dirpath, dirnames, filenames) in walk(pt):
-            f.extend(filenames)
-            break
-        for k in f:
-            fp=pt+'\\'+k            
-            fn=Path(fp).stem
-            #print(i,j,fn)
-            Data_Map_User_Table_Fun(i,j,fn,fp)
-            #print(fp) 
-  Data_Map_User_Table
-  Data_Map_User_Table.to_csv('Data_Map_User_Table.csv',index=False) 
-print(len(Data_Map_User_Table))
-Data_Map_User_Table.head(5)
-
+# =========================================         /   /   /   COMPLETED   /   /       =========================
