@@ -1,13 +1,15 @@
 # [clone libraries]
 import requests
 import subprocess
-# import git
+import git
 
 # [pandas and file handling libraries]
 import pandas as pd
 import numpy as np
 import os
 import json
+from git import Repo
+import os
 
 # [SQL libraries]
 import mysql.connector
@@ -27,11 +29,12 @@ repo = response.json()
 clone_url = repo['clone_url']
 
 #Specify the local directory path
-clone_dir = "C:/Phonepe Pulse data"
+repo_name = "Phonepe Pulse data"
+clone_dir = "C:/PhonepePulse"
 
 # Clone the repository to the specified local directory
-subprocess.run(["git", "clone", clone_url, clone_dir], check=True)
-path_1 = "C:/Phonepe Pulse data/data/aggregated/transaction/country/india/state/"
+#subprocess.run(["git", "clone", clone_url, clone_dir], check=True)
+path_1 = "C:/PhonepePulse/data/aggregated/transaction/country/india/state/"
 Agg_tran_state_list = os.listdir(path_1)
 
 Agg_tra = {'State': [], 'Year': [], 'Quarter': [], 'Transaction_type': [], 'Transaction_count': [],
@@ -65,7 +68,7 @@ df_aggregated_transaction = pd.DataFrame(Agg_tra)
 # ==============================     DATA     /     AGGREGATED     /     USER     ===================================#
 # 2
 
-path_2 = "C:/Phonepe Pulse data/data/aggregated/user/country/india/state/"
+path_2 = "C:/PhonepePulse/data/aggregated/user/country/india/state/"
 Agg_user_state_list = os.listdir(path_2)
 
 Agg_user = {'State': [], 'Year': [], 'Quarter': [], 'Brands': [], 'User_Count': [], 'User_Percentage': []}
@@ -102,7 +105,7 @@ df_aggregated_user = pd.DataFrame(Agg_user)
 # ==============================     DATA     /     MAP     /     TRANSACTION     =========================================#
 # 3
 
-path_3 = "C:/Phonepe Pulse data/data/map/transaction/hover/country/india/state/"
+path_3 = "C:/PhonepePulse/data/map/transaction/hover/country/india/state/"
 map_tra_state_list = os.listdir(path_3)
 
 map_tra = {'State': [], 'Year': [], 'Quarter': [], 'District': [], 'Transaction_Count': [], 'Transaction_Amount': []}
@@ -136,7 +139,7 @@ df_map_transaction = pd.DataFrame(map_tra)
 # ==============================         DATA     /     MAP     /     USER         ============================================#
 # 4
 
-path_4 = "C:/Phonepe Pulse data/data/map/user/hover/country/india/state/"
+path_4 = "C:/PhonepePulse/data/map/user/hover/country/india/state/"
 map_user_state_list = os.listdir(path_4)
 
 map_user = {"State": [], "Year": [], "Quarter": [], "District": [], "Registered_User": []}
@@ -168,7 +171,7 @@ df_map_user = pd.DataFrame(map_user)
 # ==============================     DATA     /     TOP     /     TRANSACTION     =========================================#
 # 5
 
-path_5 = "C:/Phonepe Pulse data/data/top/transaction/country/india/state/"
+path_5 = "C:/PhonepePulse/data/top/transaction/country/india/state/"
 top_tra_state_list = os.listdir(path_5)
 
 top_tra = {'State': [], 'Year': [], 'Quarter': [], 'District_Pincode': [], 'Transaction_count': [],
@@ -203,7 +206,7 @@ df_top_transaction = pd.DataFrame(top_tra)
 # ==============================     DATA     /     TOP     /     USER     ============================================#
 # 6
 
-path_6 = "C:/Phonepe Pulse data/data/top/user/country/india/state/"
+path_6 = "C:/PhonepePulse/data/top/user/country/india/state/"
 top_user_state_list = os.listdir(path_6)
 
 top_user = {'State': [], 'Year': [], 'Quarter': [], 'District_Pincode': [], 'Registered_User': []}
@@ -717,4 +720,3 @@ else:
         st.subheader('Total User Analysis')
         st.dataframe(df_top_us_tab_qry_rslt1)
 
-# =========================================         /   /   /   COMPLETED   /   /       =========================
